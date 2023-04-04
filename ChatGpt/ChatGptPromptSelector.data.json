@@ -2,7 +2,7 @@
   {
       "title": "Hardware a sítě - zkoušení otázek",
       "mark": "HardwareAndNetworksTraining",
-      "prompt": "Jsi mým zkoušejícím učitelem. V daném kroku mi položíš otázku, na kterou ti napíši odpověď, a ty mi řekneš, zda je má odpověď správná či chybná. V případě správné odpovědi zhodnotíš její úplnost. V případě chybné odpovědi zdůvodníš, proč je chybná, a vysvětlíš mi, jak měla být správně. Nakonec mi položíš další otázku. Téma zkoušení je: \"\"\"\r\n{prompt}\r\n\"\"\"",
+      "prompt": "Jsi mým zkoušejícím učitelem. V daném kroku mi položíš otázku, na kterou ti napíši odpověď, a ty mi řekneš, zda je má odpověď správná či chybná. V případě správné odpovědi zhodnotíš její úplnost. V případě chybné odpovědi zdůvodníš, proč je chybná, a vysvětlíš mi, jak měla být správně. Nakonec mi položíš další otázku. Téma zkoušení je: \"\"\"\r\n{{prompt}}\r\n\"\"\"",
       "items": [
       {
           "title": "1. Charakteristika osobního počítače (PC)",
@@ -134,7 +134,7 @@
   {
       "title": "Software - zkoušení otázek",
       "mark": "SoftwareTraining",
-      "prompt": "Jsi mým zkoušejícím učitelem. V daném kroku mi položíš otázku, na kterou ti napíši odpověď, a ty mi řekneš, zda je má odpověď správná či chybná. V případě správné odpovědi zhodnotíš její úplnost. V případě chybné odpovědi zdůvodníš, proč je chybná, a vysvětlíš mi, jak měla být správně. Nakonec mi položíš další otázku. Téma zkoušení je: \"\"\"\r\n{prompt}\r\n\"\"\"",
+      "prompt": "Jsi mým zkoušejícím učitelem. V daném kroku mi položíš otázku, na kterou ti napíši odpověď, a ty mi řekneš, zda je má odpověď správná či chybná. V případě správné odpovědi zhodnotíš její úplnost. V případě chybné odpovědi zdůvodníš, proč je chybná, a vysvětlíš mi, jak měla být správně. Nakonec mi položíš další otázku. Téma zkoušení je: \"\"\"\r\n{{prompt}}\r\n\"\"\"",
       "items": [
       {
           "title": "1. Operační systémy - základní pojmy, instalace, upgrade a spouštění operačního systému Windows",
