@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Speech-to-Text
 // @namespace    https://github.com/MJakubec/UserScripts
-// @version      0.1.1
+// @version      0.1.2
 // @description  Provides speech transcription service for prompting with use of a voice.
 // @author       Michal Jakubec
 // @updateURL    https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/SpeechToText/ChatGptSpeechToText.user.js
