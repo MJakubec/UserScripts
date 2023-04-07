@@ -155,9 +155,9 @@ class SpeechRecorder
   {
     const params = this.gateNode.parameters;
 
-    params.get('delayedChunkCount').value = parseInt(params.delayedChunkCount);
-    params.get('intensityThreshold').value = parseInt(params.intensityThreshold);
-    params.get('silenceBlockCount').value = parseInt(params.silenceBlockCount);
+    params.get('delayedChunkCount').value = parseInt(values.delayedChunkCount);
+    params.get('intensityThreshold').value = parseInt(values.intensityThreshold);
+    params.get('silenceBlockCount').value = parseInt(values.silenceBlockCount);
   }
 
   async activate()
