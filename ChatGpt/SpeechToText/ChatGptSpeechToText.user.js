@@ -10,10 +10,12 @@
 // @require      https://cdnjs.cloudflare.com/ajax/libs/recorderjs/0.1.0/recorder.js#sha512=zSq4Vvm00k8M01OLF/SmwKryVpA7YVXIbEFHU1rvNw3pgH50SjL6O4nDbB65V76YKWmr3rPABOXJ+uz+Z3BEmw==
 // @require      https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/SpeechToText/Modules/AzureTranscriber.js
 // @require      https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/SpeechToText/Modules/SpeechRecorder.js
+// @resource     AudioGate https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/SpeechToText/Modules/AudioGate.js
 // @match        https://chat.openai.com/chat
 // @match        https://chat.openai.com/chat/*
 // @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
 // @noframes
+// @grant        GM_getResourceText
 // @grant        GM_xmlhttpRequest
 // @grant        GM.setValue
 // @grant        GM.getValue
@@ -22,13 +24,13 @@
 (async function() {
   'use strict';
 
+  const checkMarkupPeriodInMilliseconds = 500;
+
   const toggleRecordingButtonMarkup = '<button id="stt-toggle-recording" class="btn relative btn-neutral border-0 md:border text-gray-400"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" /></svg></button>';
   const toggleLanguageButtonMarkup = '<button id="stt-toggle-language" class="btn relative btn-neutral border-0 md:border text-gray-800"></button>';
   const toggleSubmitButtonMarkup = '<button id="stt-toggle-submit" class="btn relative btn-neutral border-0 md:border text-gray-400"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" /></svg></button>';
 
   const containerSelectorQuery = 'form div.md\\:w-full.justify-center';
-
-  const audioGateModuleUrl = 'https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/SpeechToText/Modules/AudioGate.js';
 
   const languages = [
     {
@@ -43,6 +45,8 @@
 
   var currentLanguage = languages[0];
   var useAutoSubmit = false;
+  var recorder = null;
+  var transcriber = null;
 
   var speechServiceRegionId = '';
   var speechServiceAccessKey = '';
@@ -294,23 +298,34 @@
 
   function activateCheckTimer()
   {
-    setInterval(checkMarkup, 500);
+    setInterval(checkMarkup, checkMarkupPeriodInMilliseconds);
   }
 
-  const recorder = new SpeechRecorder(
-    audioGateModuleUrl,
-    onRecorderActivate,
-    onRecorderDeactivate,
-    onSpeechStart,
-    onSpeechEnd,
-    onSpeechAvailable
-  );
+  function prepareAudioGateModuleUrl()
+  {
+    const text = GM_getResourceText('AudioGate');
+    const blob = new Blob([text], { type: 'text/javascript' });
+    return URL.createObjectURL(blob);
+  }
 
-  const transcriber = new AzureTranscriber(
-    speechServiceRegionId,
-    speechServiceAccessKey,
-    onTranscriptionDone
-  );
+  function initializeWorkers()
+  {
+    recorder = new SpeechRecorder(
+      prepareAudioGateModuleUrl(),
+      onRecorderActivate,
+      onRecorderDeactivate,
+      onSpeechStart,
+      onSpeechEnd,
+      onSpeechAvailable
+    );
 
+    transcriber = new AzureTranscriber(
+      speechServiceRegionId,
+      speechServiceAccessKey,
+      onTranscriptionDone
+    );
+  }
+
+  initializeWorkers();
   activateCheckTimer();
 })();
