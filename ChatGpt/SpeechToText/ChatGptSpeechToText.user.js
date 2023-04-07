@@ -161,6 +161,12 @@
     setTimeout(updateEntryHeight, 200);
   }
 
+  function onTranscriptionError(status)
+  {
+    button.removeClass('bg-yellow-100');
+    console.log('Transcription error: ' + status);
+  }
+
   function updateToggleRecordingButtonState()
   {
     const button = lookupToggleRecordingButton();
@@ -266,12 +272,12 @@
     return false;
   }
 
-  function toggleRecorderState()
+  async function toggleRecorderState()
   {
     if (!recorder.isActive)
-      recorder.activate();
+      await recorder.activate();
     else
-      recorder.deactivate();
+      await recorder.deactivate();
   }
 
   async function onToggleRecording(event)
@@ -358,7 +364,8 @@
     transcriber = new AzureTranscriber(
       speechServiceRegionId,
       speechServiceAccessKey,
-      onTranscriptionDone
+      onTranscriptionDone,
+      onTranscriptionError
     );
   }
 
