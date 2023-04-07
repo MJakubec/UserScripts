@@ -1,8 +1,8 @@
 // ==UserScript==
 // @name         ChatGPT Speech-to-Text
 // @namespace    https://github.com/MJakubec/UserScripts
-// @version      0.1.3
-// @description  Provides speech transcription service for prompting with use of a voice.
+// @version      0.1.4
+// @description  Provides a speech transcription service for prompting with use of a voice.
 // @author       Michal Jakubec
 // @updateURL    https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/SpeechToText/ChatGptSpeechToText.user.js
 // @downloadURL  https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/SpeechToText/ChatGptSpeechToText.user.js
@@ -32,15 +32,74 @@
 
   const containerSelectorQuery = 'form div.md\\:w-full.justify-center';
 
-  const languages = [{ name: 'EN', mark: 'en-US' }, { name: 'CZ', mark: 'cs-CZ' }];
+  const languages = [{ name: 'EN', mark: 'en-US' }, { name: 'CZ', mark: 'cs-CZ' }, { name: 'DE', mark: 'de-DE' }];
 
   var currentLanguage = languages[0];
-  var useAutoSubmit = false;
+
   var recorder = null;
   var transcriber = null;
 
+  var useAutoSubmit = false;
+  var isGenerating = false;
+
   var speechServiceRegionId = '';
   var speechServiceAccessKey = '';
+
+  async function loadAudioParams()
+  {
+    const silenceBlockCount = await GM.getValue('silenceBlockCount');
+    const intensityThreshold = await GM.getValue('intensityThreshold');
+    const delayedChunkCount = await GM.getValue('delayedChunkCount');
+
+    if (silenceBlockCount.length == 0)
+      return;
+    if (intensityThreshold.length == 0)
+      return;
+    if (delayedChunkCount.length == 0)
+      return;
+
+    const values = {
+      delayedChunkCount: parseInt(delayedChunkCount),
+      intensityThreshold: parseInt(intensityThreshold),
+      silenceBlockCount: parseInt(silenceBlockCount)
+    };
+
+    recorder.setAudioParams(values);
+  }
+
+  async function storeDefaultAudioParams()
+  {
+    await GM.setValue('silenceBlockCount', 400);
+    await GM.setValue('intensityThreshold', 25);
+    await GM.setValue('delayedChunkCount', 100);
+  }
+
+  async function loadConfigurationValues()
+  {
+    speechServiceRegionId = await GM.getValue('speechServiceRegionId', '');
+    speechServiceAccessKey = await GM.getValue('speechServiceAccessKey', '');
+
+    const hasRegionId = (speechServiceRegionId.length > 0);
+    const hasAccessKey = (speechServiceAccessKey.length > 0);
+
+    if (hasRegionId && hasAccessKey)
+    {
+      transcriber.regionId = speechServiceRegionId;
+      transcriber.accessKey = speechServiceAccessKey;
+      return true;
+    }
+
+    if (!hasRegionId)
+      await GM.setValue('speechServiceRegionId', '');
+    if (!hasAccessKey)
+      await GM.setValue('speechServiceAccessKey', '');
+
+    await storeDefaultAudioParams();
+
+    alert('You have to configure at least "speechServiceRegionId" and "speechServiceAccessKey" parameters according to the Azure Speech resource you have created in your Azure cloud tenant. Please provide appropriate configuration values in the settings of this userscript.');
+
+    return false;
+  }
 
   function lookupContainer()
   {
@@ -60,36 +119,6 @@
   function lookupToggleSubmitButton()
   {
     return $('button#stt-toggle-submit');
-  }
-
-  async function onRecorderActivate()
-  {
-    await loadAudioParams();
-    updateToggleRecordingButtonState();
-  }
-
-  function onRecorderDeactivate()
-  {
-    updateToggleRecordingButtonState();
-  }
-
-  function onSpeechStart()
-  {
-    const button = lookupToggleRecordingButton();
-    button.addClass('bg-green-100');
-  }
-
-  function onSpeechEnd()
-  {
-    const button = lookupToggleRecordingButton();
-    button.removeClass('bg-green-100');
-  }
-
-  function onSpeechAvailable(blob)
-  {
-    const button = lookupToggleRecordingButton();
-    button.addClass('bg-yellow-100');
-    transcriber.transcribe(blob, currentLanguage.mark);
   }
 
   function lookupEntry()
@@ -121,51 +150,6 @@
   {
     const button = lookupEntrySubmitButton();
     button.trigger('click');
-  }
-
-  function updateEntryTextWithTranscription(transcription)
-  {
-    const entry = lookupEntry();
-    var text = entry.val();
-    const hasText = (text.length > 0);
-
-    if (hasText)
-      text += ' ';
-
-    text += transcription;
-
-    entry.val(text);
-    entry.focus();
-
-    updateEntryHeight();
-    enableEntrySubmitButton();
-
-    const press = $.Event('keypress');
-    press.which = 35;
-    entry.trigger(press);
-  }
-
-  function onTranscriptionDone(result)
-  {
-    const button = lookupToggleRecordingButton();
-    button.removeClass('bg-yellow-100');
-
-    if (result.RecognitionStatus != 'Success')
-      return;
-
-    updateEntryTextWithTranscription(result.DisplayText);
-
-    if (useAutoSubmit)
-      clickEntrySubmitButton();
-
-    setTimeout(updateEntryHeight, 200);
-  }
-
-  function onTranscriptionError(status)
-  {
-    const button = lookupToggleRecordingButton();
-    button.removeClass('bg-yellow-100');
-    console.log('Transcription error: ' + status);
   }
 
   function updateToggleRecordingButtonState()
@@ -206,6 +190,28 @@
     }
   }
 
+  function updateEntryTextWithTranscription(transcription)
+  {
+    const entry = lookupEntry();
+    var text = entry.val();
+    const hasText = (text.length > 0);
+
+    if (hasText)
+      text += ' ';
+
+    text += transcription;
+
+    entry.val(text);
+    entry.focus();
+
+    updateEntryHeight();
+    enableEntrySubmitButton();
+
+    const press = $.Event('keypress');
+    press.which = 35;
+    entry.trigger(press);
+  }
+
   function checkBrowserCompatibility()
   {
     const supported = recorder.isSupportedByBrowser();
@@ -217,97 +223,96 @@
     return true;
   }
 
-  async function storeAudioParams()
+  async function onToggleRecording(event)
   {
-    await GM.setValue('silenceBlockCount', 400);
-    await GM.setValue('intensityThreshold', 25);
-    await GM.setValue('delayedChunkCount', 100);
-  }
+    event.preventDefault();
 
-  async function loadAudioParams()
-  {
-    const silenceBlockCount = await GM.getValue('silenceBlockCount');
-    const intensityThreshold = await GM.getValue('intensityThreshold');
-    const delayedChunkCount = await GM.getValue('delayedChunkCount');
-
-    if (silenceBlockCount.length == 0)
+    if (!checkBrowserCompatibility())
       return;
-    if (intensityThreshold.length == 0)
-      return;
-    if (delayedChunkCount.length == 0)
+    if (!await loadConfigurationValues())
       return;
 
-    const values = {
-      delayedChunkCount: parseInt(delayedChunkCount),
-      intensityThreshold: parseInt(intensityThreshold),
-      silenceBlockCount: parseInt(silenceBlockCount)
-    };
-
-    recorder.setAudioParams(values);
-  }
-
-  async function loadConfigurationValues()
-  {
-    speechServiceRegionId = await GM.getValue('speechServiceRegionId', '');
-    speechServiceAccessKey = await GM.getValue('speechServiceAccessKey', '');
-
-    const hasRegionId = (speechServiceRegionId.length > 0);
-    const hasAccessKey = (speechServiceAccessKey.length > 0);
-
-    if (hasRegionId && hasAccessKey)
-    {
-      transcriber.regionId = speechServiceRegionId;
-      transcriber.accessKey = speechServiceAccessKey;
-      return true;
-    }
-
-    if (!hasRegionId)
-      await GM.setValue('speechServiceRegionId', '');
-    if (!hasAccessKey)
-      await GM.setValue('speechServiceAccessKey', '');
-
-    await storeAudioParams();
-
-    alert('You have to configure at least "speechServiceRegionId" and "speechServiceAccessKey" parameters according to the Azure Speech resource you have created in your Azure cloud tenant. Please provide appropriate configuration values in the settings of this userscript.');
-
-    return false;
-  }
-
-  async function toggleRecorderState()
-  {
     if (!recorder.isActive)
       await recorder.activate();
     else
       await recorder.deactivate();
   }
 
-  async function onToggleRecording(event)
-  {
-    if (!checkBrowserCompatibility())
-      return;
-    if (!await loadConfigurationValues())
-      return;
-
-    await toggleRecorderState();
-
-    event.preventDefault();
-  }
-
   function onToggleLanguage(event)
   {
+    event.preventDefault();
+
     var index = languages.indexOf(currentLanguage);
     index = (index + 1) % languages.length;
     currentLanguage = languages[index];
     updateToggleLanguageButtonState();
-
-    event.preventDefault();
   }
 
   function onToggleSubmit(event)
   {
+    event.preventDefault();
     useAutoSubmit = !useAutoSubmit;
     updateToggleSubmitButtonState();
-    event.preventDefault();
+  }
+
+  async function onRecorderActivate()
+  {
+    await loadAudioParams();
+    updateToggleRecordingButtonState();
+  }
+
+  function onRecorderDeactivate()
+  {
+    updateToggleRecordingButtonState();
+  }
+
+  function onSpeechStart()
+  {
+    const button = lookupToggleRecordingButton();
+    button.addClass('bg-green-100');
+  }
+
+  function onSpeechEnd()
+  {
+    const button = lookupToggleRecordingButton();
+    button.removeClass('bg-green-100');
+  }
+
+  function onSpeechAvailable(blob)
+  {
+    if (isGenerating)
+      return;
+
+    const button = lookupToggleRecordingButton();
+    button.addClass('bg-yellow-100');
+
+    transcriber.transcribe(blob, currentLanguage.mark);
+  }
+
+  function onTranscriptionDone(result)
+  {
+    const button = lookupToggleRecordingButton();
+    button.removeClass('bg-yellow-100');
+
+    if (result.RecognitionStatus != 'Success')
+      return;
+
+    updateEntryTextWithTranscription(result.DisplayText);
+
+    if (useAutoSubmit)
+    {
+      isGenerating = true;
+      clickEntrySubmitButton();
+    }
+
+    setTimeout(updateEntryHeight, 200);
+  }
+
+  function onTranscriptionError(status)
+  {
+    const button = lookupToggleRecordingButton();
+    button.removeClass('bg-yellow-100');
+    console.log('Transcription error: ' + status);
   }
 
   function checkMarkup()
@@ -337,6 +342,9 @@
       const button = lookupToggleRecordingButton();
       button.on('click', onToggleRecording);
     }
+
+    const button = lookupEntrySubmitButton();
+    isGenerating = (button.has('div').length > 0);
   }
 
   function activateCheckTimer()
