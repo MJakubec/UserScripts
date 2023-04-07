@@ -32,16 +32,7 @@
 
   const containerSelectorQuery = 'form div.md\\:w-full.justify-center';
 
-  const languages = [
-    {
-      name: 'EN',
-      mark: 'en-US'
-    },
-    {
-      name: 'CZ',
-      mark: 'cs-CZ'
-    }
-  ];
+  const languages = [{ name: 'EN', mark: 'en-US' }, { name: 'CZ', mark: 'cs-CZ' }];
 
   var currentLanguage = languages[0];
   var useAutoSubmit = false;
@@ -74,16 +65,12 @@
   async function onRecorderActivate()
   {
     await loadAudioParams();
-    const button = lookupToggleRecordingButton();
-    button.addClass('text-red-500');
-    button.removeClass('text-gray-400');
+    updateToggleRecordingButtonState();
   }
 
   function onRecorderDeactivate()
   {
-    const button = lookupToggleRecordingButton();
-    button.addClass('text-gray-400');
-    button.removeClass('text-red-500');
+    updateToggleRecordingButtonState();
   }
 
   function onSpeechStart()
@@ -174,6 +161,22 @@
     setTimeout(updateEntryHeight, 200);
   }
 
+  function updateToggleRecordingButtonState()
+  {
+    const button = lookupToggleRecordingButton();
+
+    if (recorder.isActive)
+    {
+      button.addClass('text-red-500');
+      button.removeClass('text-gray-400');
+    }
+    else
+    {
+      button.addClass('text-gray-400');
+      button.removeClass('text-red-500');
+    }
+  }
+
   function updateToggleLanguageButtonState()
   {
     const button = lookupToggleLanguageButton();
@@ -228,9 +231,9 @@
       return;
 
     const values = {
-      delayedChunkCount: parseInt(silenceBlockCount),
+      delayedChunkCount: parseInt(delayedChunkCount),
       intensityThreshold: parseInt(intensityThreshold),
-      silenceBlockCount: parseInt(delayedChunkCount)
+      silenceBlockCount: parseInt(silenceBlockCount)
     };
 
     recorder.setAudioParams(values);
@@ -323,6 +326,7 @@
     if (selector.has('button#stt-toggle-recording').length == 0)
     {
       selector.prepend(toggleRecordingButtonMarkup);
+      updateToggleRecordingButtonState();
       const button = lookupToggleRecordingButton();
       button.on('click', onToggleRecording);
     }
