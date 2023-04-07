@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Speech-to-Text
 // @namespace    https://github.com/MJakubec/UserScripts
-// @version      0.1.4
+// @version      0.1.5
 // @description  Provides a speech transcription service for prompting with use of a voice.
 // @author       Michal Jakubec
 // @updateURL    https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/SpeechToText/ChatGptSpeechToText.user.js
@@ -13,6 +13,7 @@
 // @resource     AudioGate https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/SpeechToText/Modules/AudioGate.js
 // @match        https://chat.openai.com/chat
 // @match        https://chat.openai.com/chat/*
+// @match        https://chat.openai.com/chat?*
 // @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
 // @noframes
 // @grant        GM_getResourceText
