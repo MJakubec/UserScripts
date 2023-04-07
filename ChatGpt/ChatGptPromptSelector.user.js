@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Prompt Selector
 // @namespace    https://github.com/MJakubec/UserScripts
-// @version      0.1.3
+// @version      0.1.4
 // @description  Allows to easily select a prompt from a prepared dataset.
 // @author       Michal Jakubec
 // @updateURL    https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/ChatGptPromptSelector.user.js
@@ -11,6 +11,7 @@
 // @match        https://chat.openai.com/chat
 // @match        https://chat.openai.com/chat/*
 // @match        https://chat.openai.com/chat?*
+// @noframes
 // @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
 // @grant        GM_xmlhttpRequest
 // ==/UserScript==
