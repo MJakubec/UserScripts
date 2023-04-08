@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Speech-to-Text
 // @namespace    https://github.com/MJakubec/UserScripts
-// @version      0.1.5
+// @version      0.1.6
 // @description  Provides a speech transcription service for prompting with use of a voice.
 // @author       Michal Jakubec
 // @updateURL    https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/SpeechToText/ChatGptSpeechToText.user.js
@@ -22,26 +22,40 @@
 // @grant        GM.getValue
 // ==/UserScript==
 
-(async function() {
+(async () => {
   'use strict';
 
   const checkMarkupPeriodInMilliseconds = 500;
 
-  const toggleRecordingButtonMarkup = '<button id="stt-toggle-recording" title="Toggle speech transcription" class="btn relative btn-neutral border-0 md:border text-gray-400"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" /></svg></button>';
-  const toggleLanguageButtonMarkup = '<button id="stt-toggle-language" title="Change language" class="btn relative btn-neutral border-0 md:border text-gray-800"></button>';
-  const toggleSubmitButtonMarkup = '<button id="stt-toggle-submit" title="Toggle auto-submit" class="btn relative btn-neutral border-0 md:border text-gray-400"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" /></svg></button>';
+  const buttonToggleRecordingMarkup = '<button id="stt-toggle-recording" title="Toggle speech transcription" class="btn relative btn-neutral border-0 md:border text-gray-400"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" /></svg></button>';
+  const buttonToggleLanguageMarkup = '<button id="stt-toggle-language" title="Change language" class="btn relative btn-neutral border-0 md:border text-gray-800"></button>';
+  const buttonToggleSubmitMarkup = '<button id="stt-toggle-submit" title="Toggle auto-submit" class="btn relative btn-neutral border-0 md:border text-gray-400"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" /></svg></button>';
 
-  const containerSelectorQuery = 'form div.md\\:w-full.justify-center';
+  const toolbarSelector = 'form div.md\\:w-full.justify-center';
+  const buttonToggleRecordingSelector = 'button#stt-toggle-recording';
+  const buttonToggleLanguageSelector = 'button#stt-toggle-language';
+  const buttonToggleSubmitSelector = 'button#stt-toggle-submit';
+  const entrySelector = 'textarea';
+  const buttonSubmitEntrySelector = 'textarea + button';
+  const buttonSpeakActiveSelector = 'button#tts-speak.speaking';
 
   const languages = [{ name: 'EN', mark: 'en-US' }, { name: 'CZ', mark: 'cs-CZ' }, { name: 'DE', mark: 'de-DE' }];
 
   var currentLanguage = languages[0];
+
+  var toolbar = $();
+  var buttonToggleRecording = $();
+  var buttonToggleLanguage = $();
+  var buttonToggleSubmit = $();
+  var entry = $();
+  var buttonSubmitEntry = $();
 
   var recorder = null;
   var transcriber = null;
 
   var useAutoSubmit = false;
   var isGenerating = false;
+  var ignoreSpeech = false;
 
   var speechServiceRegionId = '';
   var speechServiceAccessKey = '';
@@ -102,39 +116,8 @@
     return false;
   }
 
-  function lookupContainer()
-  {
-    return $(containerSelectorQuery);
-  }
-
-  function lookupToggleRecordingButton()
-  {
-    return $('button#stt-toggle-recording');
-  }
-
-  function lookupToggleLanguageButton()
-  {
-    return $('button#stt-toggle-language');
-  }
-
-  function lookupToggleSubmitButton()
-  {
-    return $('button#stt-toggle-submit');
-  }
-
-  function lookupEntry()
-  {
-    return $('textarea');
-  }
-
-  function lookupEntrySubmitButton()
-  {
-    return lookupEntry().next('button');
-  }
-
   function updateEntryHeight()
   {
-    const entry = lookupEntry();
     const originalHeight = entry.height();
     entry.height(0);
     var newHeight = entry.get(0).scrollHeight - entry.css('paddingTop').replace('px','')*1 - entry.css('paddingBottom').replace('px','')*1;
@@ -143,57 +126,49 @@
 
   function enableEntrySubmitButton()
   {
-    const button = lookupEntrySubmitButton();
-    button.prop('disabled', false);
+    buttonSubmitEntry.prop('disabled', false);
   }
 
   function clickEntrySubmitButton()
   {
-    const button = lookupEntrySubmitButton();
-    button.trigger('click');
+    buttonSubmitEntry.trigger('click');
   }
 
   function updateToggleRecordingButtonState()
   {
-    const button = lookupToggleRecordingButton();
-
     if (recorder.isActive)
     {
-      button.addClass('text-red-500');
-      button.removeClass('text-gray-400');
+      buttonToggleRecording.addClass('text-red-500');
+      buttonToggleRecording.removeClass('text-gray-400');
     }
     else
     {
-      button.addClass('text-gray-400');
-      button.removeClass('text-red-500');
+      buttonToggleRecording.addClass('text-gray-400');
+      buttonToggleRecording.removeClass('text-red-500');
     }
   }
 
   function updateToggleLanguageButtonState()
   {
-    const button = lookupToggleLanguageButton();
-    button.text(currentLanguage.name);
+    buttonToggleLanguage.text(currentLanguage.name);
   }
 
   function updateToggleSubmitButtonState()
   {
-    const button = lookupToggleSubmitButton();
-
     if (useAutoSubmit)
     {
-      button.addClass('text-gray-800');
-      button.removeClass('text-gray-400');
+      buttonToggleSubmit.addClass('text-gray-800');
+      buttonToggleSubmit.removeClass('text-gray-400');
     }
     else
     {
-      button.addClass('text-gray-400');
-      button.removeClass('text-gray-800');
+      buttonToggleSubmit.addClass('text-gray-400');
+      buttonToggleSubmit.removeClass('text-gray-800');
     }
   }
 
   function updateEntryTextWithTranscription(transcription)
   {
-    const entry = lookupEntry();
     var text = entry.val();
     const hasText = (text.length > 0);
 
@@ -236,7 +211,11 @@
     if (!recorder.isActive)
       await recorder.activate();
     else
+    {
       await recorder.deactivate();
+      buttonToggleRecording.removeClass('bg-green-100');
+      buttonToggleRecording.removeClass('bg-yellow-100');
+    }
   }
 
   function onToggleLanguage(event)
@@ -267,33 +246,47 @@
     updateToggleRecordingButtonState();
   }
 
+  function isGeneratingOrAlreadySpeaking()
+  {
+    if (isGenerating)
+      return true;
+
+    const isAlreadySpeaking = ($(buttonSpeakActiveSelector).length > 0);
+    if (isAlreadySpeaking)
+      return true;
+
+    return false;
+  }
+
   function onSpeechStart()
   {
-    const button = lookupToggleRecordingButton();
-    button.addClass('bg-green-100');
+    ignoreSpeech = isGeneratingOrAlreadySpeaking();
+    if (ignoreSpeech)
+      return;
+
+    buttonToggleRecording.addClass('bg-green-100');
   }
 
   function onSpeechEnd()
   {
-    const button = lookupToggleRecordingButton();
-    button.removeClass('bg-green-100');
+    if (ignoreSpeech)
+      return;
+    buttonToggleRecording.removeClass('bg-green-100');
   }
 
   function onSpeechAvailable(blob)
   {
-    if (isGenerating)
+    if (ignoreSpeech)
       return;
 
-    const button = lookupToggleRecordingButton();
-    button.addClass('bg-yellow-100');
+    buttonToggleRecording.addClass('bg-yellow-100');
 
     transcriber.transcribe(blob, currentLanguage.mark);
   }
 
   function onTranscriptionDone(result)
   {
-    const button = lookupToggleRecordingButton();
-    button.removeClass('bg-yellow-100');
+    buttonToggleRecording.removeClass('bg-yellow-100');
 
     if (result.RecognitionStatus != 'Success')
       return;
@@ -311,41 +304,46 @@
 
   function onTranscriptionError(status)
   {
-    const button = lookupToggleRecordingButton();
-    button.removeClass('bg-yellow-100');
+    buttonToggleRecording.removeClass('bg-yellow-100');
     console.log('Transcription error: ' + status);
   }
 
   function checkMarkup()
   {
-    const selector = lookupContainer();
+    entry = $(entrySelector);
+    buttonSubmitEntry = $(buttonSubmitEntrySelector);
 
-    if (selector.has('button#stt-toggle-submit').length == 0)
+    isGenerating = (buttonSubmitEntry.has('div').length > 0);
+
+    toolbar = $(toolbarSelector);
+
+    const isToolbarMissing = (toolbar.length == 0);
+    if (isToolbarMissing)
+      return;
+
+    if (toolbar.has(buttonToggleSubmitSelector).length == 0)
     {
-      selector.prepend(toggleSubmitButtonMarkup);
+      toolbar.prepend(buttonToggleSubmitMarkup);
+      buttonToggleSubmit = $(buttonToggleSubmitSelector);
       updateToggleSubmitButtonState();
-      const button = lookupToggleSubmitButton();
-      button.on('click', onToggleSubmit);
+      buttonToggleSubmit.on('click', onToggleSubmit);
     }
 
-    if (selector.has('button#stt-toggle-language').length == 0)
+    if (toolbar.has(buttonToggleLanguageSelector).length == 0)
     {
-      selector.prepend(toggleLanguageButtonMarkup);
+      toolbar.prepend(buttonToggleLanguageMarkup);
+      buttonToggleLanguage = $(buttonToggleLanguageSelector);
       updateToggleLanguageButtonState();
-      const button = lookupToggleLanguageButton();
-      button.on('click', onToggleLanguage);
+      buttonToggleLanguage.on('click', onToggleLanguage);
     }
 
-    if (selector.has('button#stt-toggle-recording').length == 0)
+    if (toolbar.has(buttonToggleRecordingSelector).length == 0)
     {
-      selector.prepend(toggleRecordingButtonMarkup);
+      toolbar.prepend(buttonToggleRecordingMarkup);
+      buttonToggleRecording = $(buttonToggleRecordingSelector);
       updateToggleRecordingButtonState();
-      const button = lookupToggleRecordingButton();
-      button.on('click', onToggleRecording);
+      buttonToggleRecording.on('click', onToggleRecording);
     }
-
-    const button = lookupEntrySubmitButton();
-    isGenerating = (button.has('div').length > 0);
   }
 
   function activateCheckTimer()
