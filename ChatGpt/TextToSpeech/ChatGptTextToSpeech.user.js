@@ -53,8 +53,8 @@
   const dropdownOptionTemplate = '<option value="{{mark}}">{{title}}</option>';
   const sentenceTagTemplate = '<span class="tts-sentence">{{text}}</span>';
 
-  const containerSelector = 'main';
-  const contentSelector = 'main .markdown.prose:not(.result-streaming) p';
+  const divisionSelector = 'main .markdown.prose:not(.result-streaming)';
+  const contentSelector = 'p, ol, ul';
   const sentenceSelector = 'span.tts-sentence';
   const toolbarSelector = 'form div.md\\:w-full.justify-center';
 
@@ -63,8 +63,9 @@
   const dropdownLanguageSelector = 'select#tts-language';
   const dropdownVoiceSelector = 'select#tts-voice';
 
-  const paragraphSentenceRegex = /[^.]+(?:\. ?|$)/g;
-
+  const czechLanguageId = 'cs-CZ';
+  const czechLanguageDetectionRegExp = '[À-ž]';
+  
   let speaker = null;
 
   let speechServiceRegionId = '';
@@ -77,7 +78,7 @@
   let isSpeaking = false;
   let audio = null;
 
-  let processedElements = [];
+  let nextContentIndex = 0;
 
   let pendingSentences = [];
   let currentSentence = null;
@@ -85,7 +86,6 @@
   let currentLanguageId = 'en-US';
   let currentVoiceId = 'en-US-ChristopherNeural';
 
-  let container = $();
   let toolbar = $();
   let buttonSpeak = $();
   let buttonAutoplay = $();
@@ -107,7 +107,7 @@
 
   function continueWithSpeech()
   {
-    console.log('continueWithSpeech');
+    buttonSpeak.removeClass('bg-green-100');
 
     audio = null;
 
@@ -119,7 +119,9 @@
 
   function onSpeechReady(blob)
   {
-    console.log('onSpeechReady');
+    buttonSpeak.removeClass('bg-yellow-100');
+    buttonSpeak.addClass('bg-green-100');
+
     const audioUrl = URL.createObjectURL(blob);
     audio = new Audio(audioUrl);
     audio.addEventListener('ended', continueWithSpeech);
@@ -128,14 +130,35 @@
 
   function onSpeechFailure(request)
   {
+    buttonSpeak.removeClass('bg-yellow-100');
+
     reportError('Generating speech failed with error: ' + request.responseText);
     continueWithSpeech();
   }
 
+  function isInCzechLanguage(text)
+  {
+    const regexp = new RegExp(czechLanguageDetectionRegExp, 'i');
+    return regexp.test(text);
+  }
+
   function speak(text)
   {
-    console.log('speak');
-    speaker.generateSpeech(text, currentLanguageId, currentVoiceId, onSpeechReady, onSpeechFailure);
+    buttonSpeak.addClass('bg-yellow-100');
+
+    let languageId = currentLanguageId;
+    let voiceId = currentVoiceId;
+
+    if (languageId != czechLanguageId)
+    {
+      if (isInCzechLanguage(text))
+      {
+        languageId = czechLanguageId;
+        voiceId = lookupVoiceIdByLanguage(languageId);
+      }
+    }
+
+    speaker.generateSpeech(text, languageId, voiceId, onSpeechReady, onSpeechFailure);
   }
 
   function highlightCurrentSentence()
@@ -174,8 +197,6 @@
 
         if (hasLetters)
         {
-          console.log('Speaking: ' + text);
-
           highlightCurrentSentence();
           speak(text);
           break;
@@ -186,8 +207,7 @@
 
   function cleanupPendingParagraphs()
   {
-    console.log('cleanupPendingParagraphs');
-    processedElements = [];
+    nextContentIndex = 0;
     pendingSentences = [];
   }
 
@@ -198,6 +218,9 @@
       audio.pause();
       audio = null;
     }
+
+    buttonSpeak.removeClass('bg-yellow-100');
+    buttonSpeak.removeClass('bg-green-100');
 
     unhighlightCurrentSentence();
     cleanupPendingParagraphs();
@@ -272,19 +295,36 @@
     paragraph.innerHTML = output;
   }
 
+  function lookupContents()
+  {
+    const division = $(divisionSelector);
+    const contents = division.find(contentSelector);
+    return contents;
+  }
+
   function checkForText()
   {
-    const paragraphs = $(contentSelector);
+    const contents = lookupContents();
 
-    for (const paragraph of paragraphs)
+    while (nextContentIndex < contents.length)
     {
-      if (processedElements.includes(paragraph))
-        continue;
+      const content = contents[nextContentIndex];
+      const name = content.nodeName.toLowerCase();
 
-      embedParagraphSentences(paragraph);
-      extractSentencesFromParagraph(paragraph);
+      if (name == 'p')
+      {
+        embedParagraphSentences(content);
+        extractSentencesFromParagraph(content);
+      }
+      else if (name == 'ol' || name == 'ul')
+      {
+        $(content).find('li').each((index, element) => {
+          embedParagraphSentences(element);
+          extractSentencesFromParagraph(element);
+        });
+      }
 
-      processedElements.push(paragraph);
+      nextContentIndex++;
     }
 
     if (!isSpeaking)
@@ -330,10 +370,15 @@
     currentLanguageId = dropdownLanguage.val();
   }
 
+  function lookupVoiceIdByLanguage(languageId)
+  {
+    const results = languages.filter(l => l.languageId == languageId);
+    return (results.length > 0 ? results[0].voiceId : null);
+  }
+
   function lookupCurrentVoiceId()
   {
-    const results = languages.filter(l => l.languageId == currentLanguageId);
-    currentVoiceId = (results.length > 0 ? results[0].voiceId : null);
+    currentVoiceId = lookupVoiceIdByLanguage(currentLanguageId);
   }
 
   function selectCurrentLanguageId()
@@ -422,13 +467,15 @@
   {
     event.preventDefault();
 
+    const contents = lookupContents();
+    nextContentIndex = contents.length;
+
     autoplayActive = !autoplayActive;
     updateAutoplayButtonState();
   }
 
   function checkMarkup()
   {
-    container = $(containerSelector);
     toolbar = $(toolbarSelector);
 
     if (toolbar.length == 0)
@@ -489,7 +536,6 @@
 
   function onVoiceListFailure(request)
   {
-    console.log('onVoiceListFailure');
     console.error('Failure of loading voice list with HTTP status code: ' + request.status);
   }
 
