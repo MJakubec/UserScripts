@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Text-to-Speech
 // @namespace    https://github.com/MJakubec/UserScripts
-// @version      0.1.0
+// @version      0.1.1
 // @description  Provides a text-to-speech service for generated text content.
 // @author       Michal Jakubec
 // @updateURL    https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/TextToSpeech/ChatGptTextToSpeech.user.js
