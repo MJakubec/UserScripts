@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Text-to-Speech
 // @namespace    https://github.com/MJakubec/UserScripts
-// @version      0.1.1
+// @version      0.1.2
 // @description  Provides a text-to-speech service for generated text content.
 // @author       Michal Jakubec
 // @updateURL    https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/TextToSpeech/ChatGptTextToSpeech.user.js
@@ -53,7 +53,7 @@
   const dropdownOptionTemplate = '<option value="{{mark}}">{{title}}</option>';
   const sentenceTagTemplate = '<span class="tts-sentence">{{text}}</span>';
 
-  const divisionSelector = 'main .markdown.prose:not(.result-streaming)';
+  const divisionSelector = 'main .markdown.prose';
   const contentSelector = 'p, ol, ul';
   const sentenceSelector = 'span.tts-sentence';
   const toolbarSelector = 'form div.md\\:w-full.justify-center';
@@ -62,6 +62,9 @@
   const buttonAutoplaySelector = 'button#tts-autoplay';
   const dropdownLanguageSelector = 'select#tts-language';
   const dropdownVoiceSelector = 'select#tts-voice';
+
+  const sentenceSplittingRegExpMatch = '(?<=\\p{L}[.?!])\\s+(?=[\\p{Lu}\\p{M}(])';
+  const sentenceSplittingRegExpOptions = 'gmu'; 
 
   const czechLanguageId = 'cs-CZ';
   const czechLanguageDetectionRegExp = '[À-ž]';
@@ -182,9 +185,14 @@
     {
       if (pendingSentences.length == 0)
       {
-        isSpeaking = false;
-        updateSpeakButtonState();
-        break;
+        processNextContentBlock();
+
+        if (pendingSentences.length == 0)
+        {
+          isSpeaking = false;
+          updateSpeakButtonState();
+          break;
+        }
       }
 
       fetchNextSentence();
@@ -205,12 +213,6 @@
     }
   }
 
-  function cleanupPendingParagraphs()
-  {
-    nextContentIndex = 0;
-    pendingSentences = [];
-  }
-
   function stopSpeaking()
   {
     if (audio != null)
@@ -223,7 +225,9 @@
     buttonSpeak.removeClass('bg-green-100');
 
     unhighlightCurrentSentence();
-    cleanupPendingParagraphs();
+
+    nextContentIndex = lookupContents().length;
+    pendingSentences = [];
     isSpeaking = false;
 
     updateSpeakButtonState();
@@ -231,10 +235,12 @@
 
   function parseParagraphToSentences(text)
   {
-    const sentences = text.split(/(?<=\w[.?!])\s/);
+    const regex = new RegExp(sentenceSplittingRegExpMatch, sentenceSplittingRegExpOptions);
+
+    const sentences = text.split(regex);
     const result = [];
     let joinedSentence = "";
-  
+
     while (true)
     {
       const sentence = (sentences.length > 0 ? sentences.shift() : null);
@@ -264,13 +270,18 @@
     return result;
   }
 
-  function extractSentencesFromParagraph(paragraph)
+  function tryExtractSentencesFromParagraph(paragraph)
   {
     const sentences = $(paragraph).find(sentenceSelector);
+
+    if (sentences.length == 0)
+      return false;
 
     sentences.each((index, element) => {
       pendingSentences.push(element);
     });
+
+    return true;
   }
 
   function embedParagraphSentences(paragraph)
@@ -295,43 +306,79 @@
     paragraph.innerHTML = output;
   }
 
+  function processSingleParagraph(element)
+  {
+    embedParagraphSentences(element);
+    tryExtractSentencesFromParagraph(element);
+  }
+
+  function processComplexParagraph(element)
+  {
+    const contents = $(element).contents();
+    const notPlainText = (contents.length > 1 || contents[0].nodeType !== 3);
+
+    if (notPlainText)
+      $(contents).each((index, element) => { processGenericContent(element); });
+    else
+      processSingleParagraph(element);
+  }
+
+  function processGenericContent(content)
+  {
+    const name = content.nodeName.toLowerCase();
+
+    if (name == 'p')
+      processComplexParagraph(content);
+    else if (name == 'ol' || name == 'ul')
+    {
+      const bullets = $(content).find('li');
+      $(bullets).each((index, element) => { processComplexParagraph(element); });
+    }
+  }
+
   function lookupContents()
   {
     const division = $(divisionSelector);
-    const contents = division.find(contentSelector);
+    let contents = division.find(contentSelector);
+
+    const alreadyGenerating = division.hasClass('result-streaming');
+
+    if (alreadyGenerating)
+      contents = contents.not(':last');
+
     return contents;
+  }
+
+  function processNextContentBlock()
+  {
+    const contents = lookupContents();
+
+    if (nextContentIndex < contents.length)
+    {
+      const content = contents[nextContentIndex];
+      const sentences = $(content).find(sentenceSelector);
+
+      const alreadyParsed = tryExtractSentencesFromParagraph(content);
+
+      if (!alreadyParsed)
+        processGenericContent(content);
+
+      nextContentIndex++;
+    }
   }
 
   function checkForText()
   {
-    const contents = lookupContents();
-
-    while (nextContentIndex < contents.length)
-    {
-      const content = contents[nextContentIndex];
-      const name = content.nodeName.toLowerCase();
-
-      if (name == 'p')
-      {
-        embedParagraphSentences(content);
-        extractSentencesFromParagraph(content);
-      }
-      else if (name == 'ol' || name == 'ul')
-      {
-        $(content).find('li').each((index, element) => {
-          embedParagraphSentences(element);
-          extractSentencesFromParagraph(element);
-        });
-      }
-
-      nextContentIndex++;
-    }
-
     if (!isSpeaking)
     {
-      isSpeaking = true;
-      updateSpeakButtonState();
-      triggerSpeech();
+      processNextContentBlock();
+
+      if (pendingSentences.length > 0)
+      {
+        isSpeaking = true;
+        updateSpeakButtonState();
+        triggerSpeech();
+      }
     }
   }
 
@@ -456,7 +503,12 @@
     event.preventDefault();
 
     if (!isSpeaking)
-      checkForText();
+    {
+      nextContentIndex = 0;
+
+      if (!autoplayActive)
+        checkForText();
+    }
     else
       stopSpeaking();
 
