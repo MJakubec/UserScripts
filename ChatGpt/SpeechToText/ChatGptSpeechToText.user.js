@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Speech-to-Text
 // @namespace    https://github.com/MJakubec/UserScripts
-// @version      0.1.7
+// @version      0.1.8
 // @description  Provides a speech transcription service for prompting with use of a voice.
 // @author       Michal Jakubec
 // @updateURL    https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/SpeechToText/ChatGptSpeechToText.user.js
@@ -39,24 +39,24 @@
 
   const languages = [{ name: 'EN', mark: 'en-US' }, { name: 'CZ', mark: 'cs-CZ' }, { name: 'DE', mark: 'de-DE' }];
 
-  var currentLanguage = languages[0];
+  let currentLanguage = languages[0];
 
-  var toolbar = $();
-  var buttonToggleRecording = $();
-  var buttonToggleLanguage = $();
-  var buttonToggleSubmit = $();
-  var entry = $();
-  var buttonSubmitEntry = $();
+  let toolbar = $();
+  let buttonToggleRecording = $();
+  let buttonToggleLanguage = $();
+  let buttonToggleSubmit = $();
+  let entry = $();
+  let buttonSubmitEntry = $();
 
-  var recorder = null;
-  var transcriber = null;
+  let recorder = null;
+  let transcriber = null;
 
-  var useAutoSubmit = false;
-  var isGenerating = false;
-  var ignoreSpeech = false;
+  let useAutoSubmit = false;
+  let isGenerating = false;
+  let ignoreSpeech = false;
 
-  var speechServiceRegionId = '';
-  var speechServiceAccessKey = '';
+  let speechServiceRegionId = '';
+  let speechServiceAccessKey = '';
 
   async function loadAudioParams()
   {
@@ -118,7 +118,7 @@
   {
     const originalHeight = entry.height();
     entry.height(0);
-    var newHeight = entry.get(0).scrollHeight - entry.css('paddingTop').replace('px','')*1 - entry.css('paddingBottom').replace('px','')*1;
+    const newHeight = entry.get(0).scrollHeight - entry.css('paddingTop').replace('px','') * 1 - entry.css('paddingBottom').replace('px','') * 1;
     entry.height(newHeight);
   }
 
@@ -167,7 +167,7 @@
 
   function updateEntryTextWithTranscription(transcription)
   {
-    var text = entry.val();
+    let text = entry.val();
     const hasText = (text.length > 0);
 
     if (hasText)
@@ -220,9 +220,10 @@
   {
     event.preventDefault();
 
-    var index = languages.indexOf(currentLanguage);
+    let index = languages.indexOf(currentLanguage);
     index = (index + 1) % languages.length;
     currentLanguage = languages[index];
+
     updateToggleLanguageButtonState();
   }
 
