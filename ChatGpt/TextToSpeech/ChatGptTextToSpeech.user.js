@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Text-to-Speech
 // @namespace    https://github.com/MJakubec/UserScripts
-// @version      0.1.3
+// @version      0.1.4
 // @description  Provides a text-to-speech service for generated text content.
 // @author       Michal Jakubec
 // @updateURL    https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/TextToSpeech/ChatGptTextToSpeech.user.js
@@ -9,9 +9,7 @@
 // @require      https://ajax.aspnetcdn.com/ajax/jQuery/jquery-3.6.4.min.js#sha256=a0fe8723dcf55da64d06b25446d0a8513e52527c45afcb37073465f9c6f352af
 // @require      https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.4/FileSaver.min.js#sha256=1433b8feb185bd8e81db7d2d1ea7330140531b72158300f8e26c98df1e853b21
 // @require      https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/TextToSpeech/Modules/AzureSpeaker.js
-// @match        https://chat.openai.com/chat
-// @match        https://chat.openai.com/chat/*
-// @match        https://chat.openai.com/chat?*
+// @match        https://chat.openai.com/*
 // @noframes
 // @icon         data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==
 // @grant        GM.getValue
