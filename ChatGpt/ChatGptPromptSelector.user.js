@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Prompt Selector
 // @namespace    https://github.com/MJakubec/UserScripts
-// @version      0.1.5
+// @version      0.1.6
 // @description  Allows to easily select a prompt from a prepared dataset.
 // @author       Michal Jakubec
 // @updateURL    https://github.com/MJakubec/UserScripts/raw/main/ChatGpt/ChatGptPromptSelector.user.js
@@ -139,7 +139,7 @@
   {
     const selector = lookupContainer();
 
-    if (selector.has('select').length > 0)
+    if (selector.has('select#' + categoryDropdownName).length > 0)
       return;
 
     createDropdown(selector, categoryDropdownName, categoryDropdownPlaceholder, categoryDropdownWidthInPixels, items);
